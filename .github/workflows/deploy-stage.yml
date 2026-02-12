@@ -23,19 +23,40 @@ jobs:
           chmod 600 ~/.ssh/gcp_key
           ssh-keyscan -H ${{ secrets.GCP_VM_IP }} >> ~/.ssh/known_hosts
       
+      - name: Verify connection and paths
+        env:
+          GCP_VM_IP: ${{ secrets.GCP_VM_IP }}
+          GCP_VM_USER: ${{ secrets.GCP_VM_USER }}
+          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+        run: |
+          echo "🔍 Verifying connection to VM..."
+          echo "VM IP: ${GCP_VM_IP}"
+          echo "VM User: ${GCP_VM_USER}"
+          echo "Project Path: ${PROJECT_PATH}"
+          
+          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no ${GCP_VM_USER}@${GCP_VM_IP} \
+            "echo '✅ SSH connection successful' && \
+             echo 'Home directory:' && pwd && \
+             echo 'Checking project path...' && \
+             ls -la '${{ secrets.PROJECT_PATH }}' 2>/dev/null || echo '⚠️  Project path not found: ${{ secrets.PROJECT_PATH }}'"
+      
       - name: Deploy to VM
         env:
           GCP_VM_IP: ${{ secrets.GCP_VM_IP }}
           GCP_VM_USER: ${{ secrets.GCP_VM_USER }}
           PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
         run: |
-          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no ${GCP_VM_USER}@${GCP_VM_IP} "bash -s" << EOF
+          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no ${GCP_VM_USER}@${GCP_VM_IP} \
+            "export PROJECT_PATH='${{ secrets.PROJECT_PATH }}' && bash -s" << 'EOF'
             set -e
             
             echo "🚀 Starting deployment..."
+            echo "📁 Project path: ${PROJECT_PATH}"
             
             # Navigate to project directory
-            cd ${{ secrets.PROJECT_PATH }}
+            cd "${PROJECT_PATH}" || { echo "❌ Failed to navigate to ${PROJECT_PATH}"; exit 1; }
+            
+            echo "📂 Current directory: $(pwd)"
             
             # Stash any local changes
             git stash
