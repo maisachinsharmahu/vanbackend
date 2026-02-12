@@ -8,13 +8,17 @@ import {
   getFollowing,
   searchUsers,
   updateUserProfile,
-  getUsersForMap,
-  getNotifications
+  getUsersForMapFiltered,
+  getNotifications,
+  updateLocation,
+  toggleLocationSharing
 } from '../controllers/userController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 router.route('/profile').get(protect, getUserProfile).put(protect, updateUserProfile);
-router.route('/map').get(protect, getUsersForMap);
+router.route('/location').put(protect, updateLocation);
+router.route('/share-location').put(protect, toggleLocationSharing);
+router.route('/map').get(protect, getUsersForMapFiltered);
 router.route('/notifications').get(protect, getNotifications);
 router.route('/search').get(protect, searchUsers);
 router.route('/:id').get(protect, getPublicProfile);

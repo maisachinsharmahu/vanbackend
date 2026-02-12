@@ -55,11 +55,15 @@ const userSchema = new mongoose.Schema({
         allowMessages: { type: Boolean, default: true }
     },
 
+    // Location sharing with other nomads (approximate, not precise)
+    shareLocation: { type: Boolean, default: true },
+
     // Premium / Subscription
     isPremium: { type: Boolean, default: false },
     premiumSince: { type: Date },
     subscriptionTier: { type: String, enum: ['free', 'premium'], default: 'free' },
     premiumExpiresAt: { type: Date },
+    revenueCatUserId: { type: String },
 
     // Daily swipe tracking (reset daily for free users)
     dailySwipes: { type: Number, default: 0 },

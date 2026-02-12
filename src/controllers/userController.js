@@ -249,4 +249,52 @@ const getNotifications = async (req, res) => {
   res.json(notifications);
 };
 
-export { getUserProfile, getPublicProfile, followUser, getFollowers, getFollowing, searchUsers, updateUserProfile, getUsersForMap, getNotifications };
+// @desc    Update current user's location
+// @route   PUT /api/users/location
+// @access  Private
+const updateLocation = async (req, res) => {
+  try {
+    const { lat, lng } = req.body;
+    if (lat == null || lng == null) {
+      return res.status(400).json({ message: 'lat and lng are required' });
+    }
+    await User.findByIdAndUpdate(req.user._id, { location: { lat, lng } });
+    res.json({ message: 'Location updated' });
+  } catch (err) {
+    console.error('updateLocation error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Toggle location sharing with other nomads
+// @route   PUT /api/users/share-location
+// @access  Private
+const toggleLocationSharing = async (req, res) => {
+  try {
+    const { shareLocation } = req.body;
+    await User.findByIdAndUpdate(req.user._id, { shareLocation: !!shareLocation });
+    res.json({ shareLocation: !!shareLocation });
+  } catch (err) {
+    console.error('toggleLocationSharing error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get all users for map (only those who share location)
+// @route   GET /api/users/map
+// @access  Private
+const getUsersForMapFiltered = async (req, res) => {
+  try {
+    const users = await User.find({
+      _id: { $ne: req.user._id },
+      'location.lat': { $ne: null },
+      shareLocation: { $ne: false },
+    }).select('name handle photos profilePhoto location nomadCategory nextStop verificationTier profileIcon bio');
+    res.json(users);
+  } catch (err) {
+    console.error('getUsersForMapFiltered error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export { getUserProfile, getPublicProfile, followUser, getFollowers, getFollowing, searchUsers, updateUserProfile, getUsersForMap, getNotifications, updateLocation, toggleLocationSharing, getUsersForMapFiltered };
