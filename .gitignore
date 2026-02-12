@@ -1,0 +1,6 @@
+node_modules/
+.env
+.DS_Store
+*.json.bak
+src/vanmedia-*.json
+package-lock.json
