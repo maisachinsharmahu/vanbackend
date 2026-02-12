@@ -29,13 +29,13 @@ jobs:
           GCP_VM_USER: ${{ secrets.GCP_VM_USER }}
           PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
         run: |
-          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no ${GCP_VM_USER}@${GCP_VM_IP} << 'EOF'
+          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no ${GCP_VM_USER}@${GCP_VM_IP} "bash -s" << EOF
             set -e
             
             echo "🚀 Starting deployment..."
             
             # Navigate to project directory
-            cd ${PROJECT_PATH}
+            cd ${{ secrets.PROJECT_PATH }}
             
             # Stash any local changes
             git stash
@@ -70,7 +70,7 @@ jobs:
           GCP_VM_IP: ${{ secrets.GCP_VM_IP }}
           GCP_VM_USER: ${{ secrets.GCP_VM_USER }}
         run: |
-          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no ${GCP_VM_USER}@${GCP_VM_IP} << 'EOF'
+          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no ${GCP_VM_USER}@${GCP_VM_IP} "bash -s" << EOF
             pm2 status
             echo "🎉 Application is running!"
           EOF
