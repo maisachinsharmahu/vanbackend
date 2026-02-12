@@ -1,83 +1,140 @@
 # CI/CD Pipeline Setup Guide
 
+## Quick Setup Checklist
+
+Use this checklist to track your progress:
+
+- [x] SSH key generated on VM (`/home/vibro_in/.ssh/gcp_deploy_key`)
+- [ ] Public key added to `~/.ssh/authorized_keys`
+- [ ] GitHub Secret: `GCP_SSH_PRIVATE_KEY` configured
+- [ ] GitHub Secret: `GCP_VM_IP` configured  
+- [ ] GitHub Secret: `GCP_VM_USER` configured (value: `vibro_in`)
+- [ ] GitHub Secret: `PROJECT_PATH` configured (value: `/home/vibro_in/revenuebackend/vanbackend`)
+- [ ] Node.js and PM2 installed on VM
+- [ ] `.env` file created with all environment variables
+- [ ] Application running with PM2
+- [ ] PM2 startup configured for auto-restart
+- [ ] Test deployment by pushing to `stage` branch
+
 ## Overview
 This pipeline automatically deploys your backend to Google Cloud VM whenever you push changes to the `stage` branch.
 
 ## Prerequisites
-- GitHub repository with your code
-- Google Cloud VM instance running
-- SSH access to the VM
-- PM2 installed on the VM (for process management)
+- GitHub repository with your code ✅
+- Google Cloud VM instance running ✅
+- SSH access to the VM ✅
+- PM2 installed on the VM (see setup steps below)
 
 ## Setup Steps
 
-### 1. Generate SSH Key Pair (if you don't have one)
+### 1. SSH Key Setup (ALREADY COMPLETED ✅)
 
-On your local machine or VM:
+You've already generated the SSH key pair on your VM at:
+- Private key: `/home/vibro_in/.ssh/gcp_deploy_key`
+- Public key: `/home/vibro_in/.ssh/gcp_deploy_key.pub`
+- Fingerprint: `SHA256:kZm5x/yy4sidrknsOHwOvBqL6ynVhlavjCJ3Hp+dwOU`
+
+If you need to generate a new key pair in the future:
 ```bash
 ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/gcp_deploy_key
 ```
 
-This creates:
-- `~/.ssh/gcp_deploy_key` (private key - for GitHub Secrets)
-- `~/.ssh/gcp_deploy_key.pub` (public key - for VM)
+### 2. Add Public Key to VM (ALREADY ON VM ✅)
 
-### 2. Add Public Key to VM
+Since you generated the key ON your VM, the public key is already there.
+Just ensure it's in the authorized_keys file:
 
-SSH into your GCP VM and add the public key:
 ```bash
-# On your VM
-mkdir -p ~/.ssh
-chmod 700 ~/.ssh
-echo "YOUR_PUBLIC_KEY_CONTENT" >> ~/.ssh/authorized_keys
+# On your VM (you're already logged in as vibro_in)
+cat ~/.ssh/gcp_deploy_key.pub >> ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
+chmod 700 ~/.ssh
+```
+
+Verify it was added:
+```bash
+cat ~/.ssh/authorized_keys
 ```
 
 ### 3. Configure GitHub Secrets
 
 Go to your GitHub repository → Settings → Secrets and variables → Actions → New repository secret
 
+**Direct link**: https://github.com/maisachinsharmahu/vanbackend/settings/secrets/actions
+
 Add these secrets:
 
-| Secret Name | Description | Example |
-|-------------|-------------|---------|
-| `GCP_SSH_PRIVATE_KEY` | Private SSH key content | Content of `gcp_deploy_key` file |
-| `GCP_VM_IP` | VM's external IP address | `34.123.45.67` |
-| `GCP_VM_USER` | SSH username on VM | `your_username` |
-| `PROJECT_PATH` | Absolute path to project on VM | `/home/username/atlas-backend` |
+| Secret Name | Value to Use | How to Get It |
+|-------------|--------------|---------------|
+| `GCP_SSH_PRIVATE_KEY` | Content of private key file | Run on VM: `cat /home/vibro_in/.ssh/gcp_deploy_key` |
+| `GCP_VM_IP` | Your VM's external IP | Check GCP Console or run: `curl ifconfig.me` |
+| `GCP_VM_USER` | `vibro_in` | Your current username on the VM |
+| `PROJECT_PATH` | `/home/vibro_in/revenuebackend/vanbackend` | Full path to your project |
 
 **To get the private key content:**
 ```bash
-cat ~/.ssh/gcp_deploy_key
+# On your VM
+cat /home/vibro_in/.ssh/gcp_deploy_key
 ```
-Copy the entire output including `-----BEGIN OPENSSH PRIVATE KEY-----` and `-----END OPENSSH PRIVATE KEY-----`
+
+Copy the ENTIRE output including:
+- `-----BEGIN OPENSSH PRIVATE KEY-----`
+- All the content in between
+- `-----END OPENSSH PRIVATE KEY-----`
+
+Paste this entire block into the `GCP_SSH_PRIVATE_KEY` secret.
 
 ### 4. Setup VM Environment
 
-SSH into your VM and prepare the environment:
+Your project is already on the VM at: `/home/vibro_in/revenuebackend/vanbackend`
+
+**OPTION A: Automated Setup (Recommended)**
+
+Run the automated setup script on your VM:
 
 ```bash
-# Install Node.js (if not installed)
+cd /home/vibro_in/revenuebackend/vanbackend
+chmod +x vm-setup.sh
+./vm-setup.sh
+```
+
+This script will automatically:
+- Add public key to authorized_keys
+- Install Node.js and PM2 (if needed)
+- Install dependencies
+- Start the application with PM2
+- Configure PM2 startup
+
+**OPTION B: Manual Setup**
+
+Verify and complete the setup manually:
+
+```bash
+# Check if Node.js is installed
+node --version
+npm --version
+
+# If not installed, install Node.js 20.x
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
-# Install PM2 globally
+# Install PM2 globally (if not already installed)
 sudo npm install -g pm2
 
-# Clone your repository (if not already done)
-cd ~
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git atlas-backend
-cd atlas-backend
+# Navigate to your project
+cd /home/vibro_in/revenuebackend/vanbackend
 
-# Checkout stage branch
+# Ensure you're on the stage branch
 git checkout stage
+git pull origin stage
 
 # Install dependencies
 npm install
 
-# Create .env file with your environment variables
+# Verify .env file exists with all required variables
+ls -la .env
+# If missing, create it:
 nano .env
-# Add your environment variables (MongoDB URI, JWT secrets, etc.)
 
 # Start the application with PM2
 pm2 start src/server.js --name atlas-backend
@@ -85,10 +142,11 @@ pm2 start src/server.js --name atlas-backend
 # Save PM2 configuration to auto-start on reboot
 pm2 save
 pm2 startup
-# Follow the instructions from the output
+# Follow the instructions from the output (copy-paste the command it shows)
 
-# Configure firewall (if needed)
-sudo ufw allow 3000/tcp  # Replace 3000 with your app port
+# Check application status
+pm2 status
+pm2 logs atlas-backend --lines 20
 ```
 
 ### 5. Test the Pipeline

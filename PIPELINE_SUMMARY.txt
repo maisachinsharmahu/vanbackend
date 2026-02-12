@@ -1,0 +1,83 @@
+CI/CD Pipeline Setup - Quick Summary
+=====================================
+
+✅ COMPLETED STEPS:
+1. Created GitHub Actions workflow (.github/workflows/deploy-stage.yml)
+2. Added deployment script (deploy.sh)
+3. Added quick commands helper (quick-commands.sh)
+4. Added health check endpoint (/health)
+5. Updated .gitignore for security
+6. Pushed changes to both main and stage branches
+
+🚀 PIPELINE TRIGGERED!
+Your push to the stage branch should have triggered the GitHub Actions workflow.
+Check: https://github.com/maisachinsharmahu/vanbackend/actions
+
+⚠️ REQUIRED: Setup GitHub Secrets
+Before the pipeline can deploy successfully, you MUST add these secrets to your GitHub repository:
+
+Go to: Repository Settings → Secrets and variables → Actions → New repository secret
+
+Required Secrets:
+┌─────────────────────┬──────────────────────────────────────────┐
+│ Secret Name         │ Description                              │
+├─────────────────────┼──────────────────────────────────────────┤
+│ GCP_SSH_PRIVATE_KEY │ Your SSH private key for VM access       │
+│ GCP_VM_IP           │ External IP of your GCP VM               │
+│ GCP_VM_USER         │ SSH username (e.g., your_username)       │
+│ PROJECT_PATH        │ Path on VM (e.g., /home/user/vanbackend) │
+└─────────────────────┴──────────────────────────────────────────┘
+
+📋 NEXT STEPS:
+
+1. GENERATE SSH KEY (if you don't have one):
+   ssh-keygen -t ed25519 -C "github-deploy" -f ~/.ssh/gcp_deploy_key
+
+2. ADD PUBLIC KEY TO VM:
+   - SSH into your VM
+   - Run: echo "YOUR_PUBLIC_KEY" >> ~/.ssh/authorized_keys
+   - Run: chmod 600 ~/.ssh/authorized_keys
+
+3. ADD SECRETS TO GITHUB:
+   - Copy private key: cat ~/.ssh/gcp_deploy_key
+   - Add all 4 secrets listed above
+
+4. SETUP VM ENVIRONMENT:
+   - Install Node.js and PM2
+   - Clone repository to VM
+   - Create .env file with your environment variables
+   - Run initial deployment
+
+5. TEST THE PIPELINE:
+   - Make a small change
+   - Push to stage branch
+   - Watch GitHub Actions tab
+
+📖 DETAILED INSTRUCTIONS:
+See DEPLOYMENT.txt for complete step-by-step guide
+
+🔧 USEFUL COMMANDS ON VM:
+./quick-commands.sh    # Interactive menu for common tasks
+./deploy.sh           # Manual deployment
+pm2 status            # Check app status
+pm2 logs atlas-backend # View logs
+
+🏥 HEALTH CHECK:
+Your app now has a health endpoint at: http://YOUR_VM_IP:PORT/health
+
+📞 TROUBLESHOOTING:
+- Pipeline fails? Check GitHub Actions logs
+- SSH issues? Verify secrets and VM firewall
+- App not starting? Check PM2 logs on VM
+- See DEPLOYMENT.txt for detailed troubleshooting
+
+🎯 HOW IT WORKS:
+1. You push code to 'stage' branch
+2. GitHub Actions detects the push
+3. Workflow connects to your VM via SSH
+4. Pulls latest code from stage branch
+5. Installs dependencies
+6. Restarts app with PM2
+7. Verifies deployment success
+
+That's it! Your CI/CD pipeline is ready to use once you configure the secrets.
