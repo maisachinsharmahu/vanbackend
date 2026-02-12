@@ -9,6 +9,7 @@ jobs:
   deploy:
     name: Deploy to Google Cloud VM
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/stage'
     
     steps:
       - name: Checkout code
