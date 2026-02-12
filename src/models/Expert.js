@@ -7,18 +7,16 @@ const expertSchema = new mongoose.Schema({
         required: true,
         unique: true // One expert profile per user
     },
+    title: { type: String, default: '' }, // e.g., "Solar & Electrical Specialist"
+    description: { type: String, default: '' }, // Long bio about their expertise
     skills: [{ type: String }], // e.g., 'Solar', 'Plumbing', 'Carpentry'
-    hourlyRate: { type: Number, required: true },
+    hourlyRate: { type: Number, default: 0 },
     rating: { type: Number, default: 5.0 },
     reviewsCount: { type: Number, default: 0 },
     portfolio: [{ type: String }], // URLs to images of past work
     isVerified: { type: Boolean, default: false },
-    availability: { type: String, default: 'Weekdays' },
-
-    // Contact Info (Protected by Paywall on Frontend)
-    email: String,
-    phone: String,
-    website: String,
+    availability: { type: String, default: 'Available' },
+    yearsExperience: { type: Number, default: 0 },
 
     createdAt: { type: Date, default: Date.now }
 });

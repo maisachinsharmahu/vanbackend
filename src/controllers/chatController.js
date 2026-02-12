@@ -8,16 +8,21 @@ import { checkPremiumLimit } from './premiumController.js';
 // @route   GET /api/chat/:roomId
 // @access  Private
 const getMessages = async (req, res) => {
-  const pageSize = 30;
-  const page = Number(req.query.pageNumber) || 1;
+  try {
+    const pageSize = 30;
+    const page = Number(req.query.pageNumber) || 1;
 
-  const messages = await Message.find({ chatRoomId: req.params.roomId })
-    .populate('sender', 'name photos profilePhoto profileIcon handle')
-    .sort({ createdAt: -1 })
-    .limit(pageSize)
-    .skip(pageSize * (page - 1));
+    const messages = await Message.find({ chatRoomId: req.params.roomId })
+      .populate('sender', 'name photos profilePhoto profileIcon handle')
+      .sort({ createdAt: -1 })
+      .limit(pageSize)
+      .skip(pageSize * (page - 1));
 
-  res.json(messages.reverse()); // Return chronological order
+    res.json(messages.reverse()); // Return chronological order
+  } catch (error) {
+    console.error('getMessages error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
 };
 
 // @desc    Send a message
@@ -68,6 +73,26 @@ const getChatThreads = async (req, res) => {
   try {
     const userId = req.user._id;
 
+    // ── Auto-fix: migrate messages with empty chatRoomId ──
+    // These were created before the room-ID generation fix.
+    const orphanMessages = await Message.find({
+      sender: userId,
+      $or: [{ chatRoomId: '' }, { chatRoomId: { $exists: false } }],
+    }).select('_id sender createdAt');
+
+    if (orphanMessages.length > 0) {
+      // Find all messages in the same time-frame to figure out the receiver
+      for (const om of orphanMessages) {
+        // Try to find a notification that references this message to get the receiver
+        const notif = await Notification.findOne({ relatedId: om._id, type: 'message' });
+        if (notif && notif.recipient) {
+          const ids = [userId.toString(), notif.recipient.toString()].sort();
+          const correctRoomId = `dm_${ids[0]}_${ids[1]}`;
+          await Message.updateOne({ _id: om._id }, { chatRoomId: correctRoomId });
+        }
+      }
+    }
+
     // Find all unique chatRoomIds where user sent or received messages
     const sentRooms = await Message.find({ sender: userId }).distinct('chatRoomId');
 
@@ -76,7 +101,9 @@ const getChatThreads = async (req, res) => {
       chatRoomId: { $regex: userId.toString() },
     }).distinct('chatRoomId');
 
-    const allRoomIds = [...new Set([...sentRooms, ...allMessages])];
+    // Merge & filter out empty/invalid room IDs
+    const allRoomIds = [...new Set([...sentRooms, ...allMessages])]
+      .filter(id => id && id.startsWith('dm_'));
 
     // For each room, get the last message and the other user
     const threads = [];
@@ -86,6 +113,9 @@ const getChatThreads = async (req, res) => {
         .sort({ createdAt: -1 });
 
       if (!lastMessage) continue;
+
+      // Skip if sender couldn't be populated (deleted user)
+      if (!lastMessage.sender) continue;
 
       // Extract other user ID from room ID (format: dm_userId1_userId2)
       const parts = roomId.split('_');
@@ -133,6 +163,7 @@ const getChatThreads = async (req, res) => {
 
     res.json(threads);
   } catch (error) {
+    console.error('getChatThreads error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

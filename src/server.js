@@ -6,6 +6,7 @@ import { Server } from 'socket.io';
 import connectDB from './config/db.js';
 import morgan from 'morgan';
 import helmet from 'helmet';
+import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 // Config
 dotenv.config();
@@ -43,6 +44,8 @@ import expertRoutes from './routes/expertRoutes.js';
 import inviteRoutes from './routes/inviteRoutes.js';
 import premiumRoutes from './routes/premiumRoutes.js';
 import adventureRoutes from './routes/adventureRoutes.js';
+import nomadLogRoutes from './routes/nomadLogRoutes.js';
+import storyRoutes from './routes/storyRoutes.js';
 
 // Route Usage
 app.use('/api/auth', authRoutes);
@@ -54,6 +57,12 @@ app.use('/api/experts', expertRoutes); // Build Feature
 app.use('/api/invite', inviteRoutes);
 app.use('/api/premium', premiumRoutes); // Premium/Subscription Feature
 app.use('/api/adventures', adventureRoutes); // Adventures Feature
+app.use('/api/nomad-logs', nomadLogRoutes); // Nomad Log Feature
+app.use('/api/stories', storyRoutes); // Stories Feature
+
+// ── Error handling (must be AFTER all routes) ──
+app.use(notFound);
+app.use(errorHandler);
 
 // WebSocket Connection Logic
 io.on('connection', (socket) => {
@@ -69,6 +78,21 @@ io.on('connection', (socket) => {
     socket.on('leave_room', (roomId) => {
         socket.leave(roomId);
         console.log(`User ${socket.id} left room: ${roomId}`);
+    });
+
+    // ── Atlas Map: real-time location sharing ──
+    socket.on('join_atlas', () => {
+        socket.join('atlas_map');
+    });
+
+    socket.on('leave_atlas', () => {
+        socket.leave('atlas_map');
+    });
+
+    // When a user sends their location, broadcast to everyone on the map
+    socket.on('location_update', (data) => {
+        // data: { userId, lat, lng, name, handle, profilePhoto, photos, profileIcon, nomadCategory, verificationTier }
+        socket.to('atlas_map').emit('nomad_location', data);
     });
 
     // Send message event
@@ -122,3 +146,13 @@ const startServer = async () => {
 };
 
 startServer();
+
+// ── Process-level safety nets (prevent crash) ──
+process.on('uncaughtException', (err) => {
+    console.error('🔥 Uncaught Exception:', err.message);
+    console.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.error('🔥 Unhandled Rejection:', reason);
+});
