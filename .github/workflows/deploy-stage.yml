@@ -1,0 +1,81 @@
+name: Deploy to GCP VM (Stage)
+
+on:
+  push:
+    branches:
+      - stage
+
+jobs:
+  deploy:
+    name: Deploy to Google Cloud VM
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: stage
+      
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GCP_SSH_PRIVATE_KEY }}" > ~/.ssh/gcp_key
+          chmod 600 ~/.ssh/gcp_key
+          ssh-keyscan -H ${{ secrets.GCP_VM_IP }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy to VM
+        env:
+          GCP_VM_IP: ${{ secrets.GCP_VM_IP }}
+          GCP_VM_USER: ${{ secrets.GCP_VM_USER }}
+          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+        run: |
+          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no ${GCP_VM_USER}@${GCP_VM_IP} << 'EOF'
+            set -e
+            
+            echo "🚀 Starting deployment..."
+            
+            # Navigate to project directory
+            cd ${PROJECT_PATH}
+            
+            # Stash any local changes
+            git stash
+            
+            # Fetch latest changes
+            git fetch origin stage
+            
+            # Checkout and pull stage branch
+            git checkout stage
+            git pull origin stage
+            
+            # Install dependencies
+            echo "📦 Installing dependencies..."
+            npm install --production
+            
+            # Restart the application using PM2
+            echo "🔄 Restarting application..."
+            if pm2 list | grep -q "atlas-backend"; then
+              pm2 restart atlas-backend
+            else
+              pm2 start src/server.js --name atlas-backend
+            fi
+            
+            # Save PM2 configuration
+            pm2 save
+            
+            echo "✅ Deployment completed successfully!"
+          EOF
+      
+      - name: Verify deployment
+        env:
+          GCP_VM_IP: ${{ secrets.GCP_VM_IP }}
+          GCP_VM_USER: ${{ secrets.GCP_VM_USER }}
+        run: |
+          ssh -i ~/.ssh/gcp_key -o StrictHostKeyChecking=no ${GCP_VM_USER}@${GCP_VM_IP} << 'EOF'
+            pm2 status
+            echo "🎉 Application is running!"
+          EOF
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.ssh/gcp_key

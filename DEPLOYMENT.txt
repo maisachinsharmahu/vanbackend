@@ -1,0 +1,260 @@
+# CI/CD Pipeline Setup Guide
+
+## Overview
+This pipeline automatically deploys your backend to Google Cloud VM whenever you push changes to the `stage` branch.
+
+## Prerequisites
+- GitHub repository with your code
+- Google Cloud VM instance running
+- SSH access to the VM
+- PM2 installed on the VM (for process management)
+
+## Setup Steps
+
+### 1. Generate SSH Key Pair (if you don't have one)
+
+On your local machine or VM:
+```bash
+ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/gcp_deploy_key
+```
+
+This creates:
+- `~/.ssh/gcp_deploy_key` (private key - for GitHub Secrets)
+- `~/.ssh/gcp_deploy_key.pub` (public key - for VM)
+
+### 2. Add Public Key to VM
+
+SSH into your GCP VM and add the public key:
+```bash
+# On your VM
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+echo "YOUR_PUBLIC_KEY_CONTENT" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+### 3. Configure GitHub Secrets
+
+Go to your GitHub repository → Settings → Secrets and variables → Actions → New repository secret
+
+Add these secrets:
+
+| Secret Name | Description | Example |
+|-------------|-------------|---------|
+| `GCP_SSH_PRIVATE_KEY` | Private SSH key content | Content of `gcp_deploy_key` file |
+| `GCP_VM_IP` | VM's external IP address | `34.123.45.67` |
+| `GCP_VM_USER` | SSH username on VM | `your_username` |
+| `PROJECT_PATH` | Absolute path to project on VM | `/home/username/atlas-backend` |
+
+**To get the private key content:**
+```bash
+cat ~/.ssh/gcp_deploy_key
+```
+Copy the entire output including `-----BEGIN OPENSSH PRIVATE KEY-----` and `-----END OPENSSH PRIVATE KEY-----`
+
+### 4. Setup VM Environment
+
+SSH into your VM and prepare the environment:
+
+```bash
+# Install Node.js (if not installed)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install PM2 globally
+sudo npm install -g pm2
+
+# Clone your repository (if not already done)
+cd ~
+git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git atlas-backend
+cd atlas-backend
+
+# Checkout stage branch
+git checkout stage
+
+# Install dependencies
+npm install
+
+# Create .env file with your environment variables
+nano .env
+# Add your environment variables (MongoDB URI, JWT secrets, etc.)
+
+# Start the application with PM2
+pm2 start src/server.js --name atlas-backend
+
+# Save PM2 configuration to auto-start on reboot
+pm2 save
+pm2 startup
+# Follow the instructions from the output
+
+# Configure firewall (if needed)
+sudo ufw allow 3000/tcp  # Replace 3000 with your app port
+```
+
+### 5. Test the Pipeline
+
+1. Make a change to your code
+2. Commit and push to the `stage` branch:
+```bash
+git checkout stage
+git add .
+git commit -m "Test deployment pipeline"
+git push origin stage
+```
+
+3. Go to GitHub → Actions tab to watch the deployment
+
+### 6. Manual Deployment (Optional)
+
+You can also deploy manually using the deployment script:
+
+```bash
+# On your VM
+cd /path/to/your/project
+chmod +x deploy.sh
+./deploy.sh
+```
+
+Or with custom settings:
+```bash
+PROJECT_DIR=/custom/path BRANCH=stage APP_NAME=my-app ./deploy.sh
+```
+
+## Pipeline Workflow
+
+1. **Trigger**: Push to `stage` branch
+2. **Checkout**: GitHub Actions checks out the code
+3. **SSH Setup**: Configures SSH connection to VM
+4. **Deploy**: 
+   - Connects to VM via SSH
+   - Pulls latest code from `stage` branch
+   - Installs dependencies
+   - Restarts application with PM2
+5. **Verify**: Checks application status
+6. **Cleanup**: Removes SSH keys from runner
+
+## Monitoring
+
+### Check Application Status
+```bash
+pm2 status
+```
+
+### View Logs
+```bash
+pm2 logs atlas-backend
+pm2 logs atlas-backend --lines 100
+```
+
+### Restart Application
+```bash
+pm2 restart atlas-backend
+```
+
+### Stop Application
+```bash
+pm2 stop atlas-backend
+```
+
+## Troubleshooting
+
+### SSH Connection Failed
+- Verify `GCP_VM_IP` is correct and VM is running
+- Check that public key is in `~/.ssh/authorized_keys` on VM
+- Ensure VM firewall allows SSH (port 22)
+
+### Deployment Failed
+- Check GitHub Actions logs for specific error
+- Verify `PROJECT_PATH` secret is correct
+- Ensure VM has enough disk space: `df -h`
+- Check PM2 logs: `pm2 logs atlas-backend --err`
+
+### Application Not Starting
+- Check environment variables in `.env` file
+- Verify MongoDB connection string
+- Check port availability: `sudo lsof -i :3000`
+- Review PM2 logs: `pm2 logs atlas-backend`
+
+### Permission Issues
+- Ensure deployment script is executable: `chmod +x deploy.sh`
+- Check file ownership: `ls -la`
+- Verify user has write permissions to project directory
+
+## Environment Variables
+
+Make sure your VM has a `.env` file with all required variables:
+
+```env
+# Server
+PORT=3000
+NODE_ENV=production
+
+# Database
+MONGODB_URI=your_mongodb_connection_string
+
+# JWT
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRE=7d
+
+# Google Cloud Storage
+GCS_BUCKET_NAME=your_bucket_name
+GCS_PROJECT_ID=your_project_id
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
+
+# Other configurations
+CORS_ORIGIN=https://your-frontend-domain.com
+```
+
+## Security Best Practices
+
+1. **Never commit secrets** - Use `.env` file and add it to `.gitignore`
+2. **Use GitHub Secrets** - Store all sensitive data in GitHub Secrets
+3. **Rotate SSH keys** - Periodically update SSH keys
+4. **Limit SSH access** - Use firewall rules to restrict SSH access
+5. **Use HTTPS** - Configure SSL/TLS for your application
+6. **Keep dependencies updated** - Regularly run `npm audit` and update packages
+
+## Additional Features
+
+### Add Slack/Discord Notifications
+
+Add this step to `.github/workflows/deploy-stage.yml`:
+
+```yaml
+- name: Notify deployment
+  if: always()
+  run: |
+    curl -X POST -H 'Content-type: application/json' \
+    --data '{"text":"Deployment to stage: ${{ job.status }}"}' \
+    ${{ secrets.SLACK_WEBHOOK_URL }}
+```
+
+### Add Health Check
+
+Add after deployment:
+
+```yaml
+- name: Health check
+  run: |
+    sleep 10
+    curl -f http://${{ secrets.GCP_VM_IP }}:3000/health || exit 1
+```
+
+### Backup Before Deployment
+
+Add to deployment script:
+
+```bash
+# Create backup
+BACKUP_DIR="/home/$(whoami)/backups"
+mkdir -p $BACKUP_DIR
+tar -czf $BACKUP_DIR/backup-$(date +%Y%m%d-%H%M%S).tar.gz .
+```
+
+## Support
+
+For issues or questions:
+1. Check GitHub Actions logs
+2. Review PM2 logs on VM
+3. Verify all secrets are correctly set
+4. Ensure VM has internet connectivity
