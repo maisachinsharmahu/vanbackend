@@ -9,6 +9,16 @@ const getPremiumStatus = async (req, res) => {
         const user = await User.findById(req.user._id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
+        // Auto-expire premium if past expiry date
+        if (user.isPremium && user.premiumExpiresAt && new Date() > new Date(user.premiumExpiresAt)) {
+            user.isPremium = false;
+            user.subscriptionTier = 'free';
+            user.verificationTier = 1;
+            user.premiumExpiresAt = null;
+            await user.save();
+            console.log(`[Premium] Auto-expired premium for user ${user._id}`);
+        }
+
         const today = new Date().toISOString().split('T')[0];
         const postCount = await Post.countDocuments({ author: user._id });
 
@@ -32,7 +42,7 @@ const getPremiumStatus = async (req, res) => {
     }
 };
 
-// @desc    Activate premium (called after RevenueCat purchase validation or for dev testing)
+// @desc    Activate premium (called after RevenueCat purchase succeeds on client)
 // @route   POST /api/premium/activate
 // @access  Private
 const activatePremium = async (req, res) => {
@@ -40,11 +50,16 @@ const activatePremium = async (req, res) => {
         const user = await User.findById(req.user._id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
+        // Require revenueCatUserId — protects against raw API calls
+        const { revenueCatUserId, plan } = req.body;
+        if (!revenueCatUserId) {
+            return res.status(400).json({ message: 'RevenueCat User ID is required for activation' });
+        }
+
         user.isPremium = true;
         user.subscriptionTier = 'premium';
         user.premiumSince = new Date();
-        // Set expiry for 1 month (or 1 year based on plan)
-        const { plan } = req.body; // 'monthly' or 'yearly'
+        user.revenueCatUserId = revenueCatUserId;
         const expiresAt = new Date();
         if (plan === 'yearly') {
             expiresAt.setFullYear(expiresAt.getFullYear() + 1);
@@ -79,6 +94,7 @@ const deactivatePremium = async (req, res) => {
         user.isPremium = false;
         user.subscriptionTier = 'free';
         user.premiumExpiresAt = null;
+        user.premiumSince = null;
         user.verificationTier = 1; // Back to basic
 
         await user.save();
@@ -137,4 +153,36 @@ const incrementSwipe = async (userId) => {
     await user.save();
 };
 
-export { getPremiumStatus, activatePremium, deactivatePremium, checkPremiumLimit, incrementSwipe };
+// @desc    Judge bypass — grant premium without RevenueCat (hackathon demo)
+// @route   POST /api/premium/judge-bypass
+// @access  Private
+const judgeBypass = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        user.isPremium = true;
+        user.subscriptionTier = 'premium';
+        user.premiumSince = new Date();
+        // Grant 1 year for judge demo
+        const expiresAt = new Date();
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        user.premiumExpiresAt = expiresAt;
+        user.verificationTier = 3;
+
+        await user.save();
+        console.log(`[Premium] Judge bypass activated for user ${user._id} (${user.name})`);
+
+        res.json({
+            isPremium: true,
+            subscriptionTier: 'premium',
+            premiumSince: user.premiumSince,
+            premiumExpiresAt: user.premiumExpiresAt,
+            verificationTier: user.verificationTier,
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Judge bypass failed', error: error.message });
+    }
+};
+
+export { getPremiumStatus, activatePremium, deactivatePremium, checkPremiumLimit, incrementSwipe, judgeBypass };
