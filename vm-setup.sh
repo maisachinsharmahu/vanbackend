@@ -17,7 +17,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Configuration
-PROJECT_DIR="/home/vibro_in/revenuebackend/vanbackend"
+PROJECT_DIR="/home/vibro_in/vanbackend"
 SSH_KEY_PATH="/home/vibro_in/.ssh/gcp_deploy_key"
 
 echo -e "${YELLOW}Step 1: Adding public key to authorized_keys${NC}"

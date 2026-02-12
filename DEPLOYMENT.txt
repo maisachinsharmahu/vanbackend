@@ -9,7 +9,7 @@ Use this checklist to track your progress:
 - [ ] GitHub Secret: `GCP_SSH_PRIVATE_KEY` configured
 - [ ] GitHub Secret: `GCP_VM_IP` configured  
 - [ ] GitHub Secret: `GCP_VM_USER` configured (value: `vibro_in`)
-- [ ] GitHub Secret: `PROJECT_PATH` configured (value: `/home/vibro_in/revenuebackend/vanbackend`)
+- [ ] GitHub Secret: `PROJECT_PATH` configured (value: `/home/vibro_in/vanbackend`)
 - [ ] Node.js and PM2 installed on VM
 - [ ] `.env` file created with all environment variables
 - [ ] Application running with PM2

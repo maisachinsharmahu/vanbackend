@@ -54,7 +54,15 @@ jobs:
             echo "📁 Project path: ${PROJECT_PATH}"
             
             # Navigate to project directory
-            cd "${PROJECT_PATH}" || { echo "❌ Failed to navigate to ${PROJECT_PATH}"; exit 1; }
+            if [ -d "${PROJECT_PATH}" ]; then
+              cd "${PROJECT_PATH}"
+            elif [ -d "/home/${GCP_VM_USER}/vanbackend" ]; then
+              echo "⚠️  Primary path failed, found fallback at /home/${GCP_VM_USER}/vanbackend"
+              cd "/home/${GCP_VM_USER}/vanbackend"
+            else
+              echo "❌ Error: Could not find project directory at ${PROJECT_PATH} or fallback."
+              exit 1
+            fi
             
             echo "📂 Current directory: $(pwd)"
             
