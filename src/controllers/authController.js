@@ -229,11 +229,12 @@ const completeOnboarding = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Check handle uniqueness if provided
+        // Check handle uniqueness if provided and is different from current handle
         if (handle && handle !== user.handle) {
             const handleExists = await User.findOne({ handle: handle.toLowerCase(), _id: { $ne: targetUserId } });
             if (handleExists) {
-                return res.status(400).json({ message: 'Handle already taken' });
+                console.log(`❌ Handle "${handle}" already taken for user ${targetUserId}`);
+                return res.status(400).json({ message: 'Handle already taken. Please choose a different one.' });
             }
             user.handle = handle.toLowerCase();
         }
@@ -241,12 +242,13 @@ const completeOnboarding = async (req, res) => {
         // Update user profile with onboarding data
         if (rigType) user.vanInfo = { ...user.vanInfo, rigType };
         if (profileIcon !== undefined) user.profileIcon = profileIcon;
-        if (interests) user.interests = interests;
+        if (interests && Array.isArray(interests)) user.interests = interests;
         if (inviteCode) user.inviteCode = inviteCode;
         user.hasCompletedOnboarding = true;
 
         await user.save();
 
+        console.log(`✅ Onboarding completed for user ${user._id}`);
         res.json({
             _id: user._id,
             name: user.name,
