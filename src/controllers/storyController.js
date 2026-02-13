@@ -57,6 +57,8 @@ const getStories = async (req, res) => {
         // Group by user
         const grouped = {};
         for (const story of stories) {
+            if (!story.user) continue;
+
             const userId = story.user._id.toString();
             if (!grouped[userId]) {
                 grouped[userId] = {
@@ -108,7 +110,7 @@ const getUserStories = async (req, res) => {
             .populate('user', 'name handle photos profilePhoto profileIcon verificationTier isPremium')
             .sort({ createdAt: -1 });
 
-        res.json(stories);
+        res.json(stories.filter(s => s.user));
     } catch (error) {
         res.status(500).json({ message: 'Failed to get user stories', error: error.message });
     }
@@ -181,7 +183,7 @@ const getStoryViewers = async (req, res) => {
 
         res.json({
             viewCount: story.viewers.length,
-            viewers: story.viewers,
+            viewers: story.viewers.filter(v => v.user),
         });
     } catch (error) {
         res.status(500).json({ message: 'Failed to get viewers', error: error.message });
