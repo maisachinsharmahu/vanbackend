@@ -1,0 +1,93 @@
+## 🚀 CI/CD Pipeline Test Deployment
+
+**Status**: Pipeline Triggered ✅
+**Time**: 2026-02-12 23:23:21 IST
+**Branch**: stage
+**Commit**: 94bbfd4
+
+### What Just Happened:
+
+1. ✅ Pushed test commit to `stage` branch
+2. 🔄 GitHub Actions workflow should now be running
+3. 📡 Pipeline will attempt to deploy to your GCP VM
+
+### Check Pipeline Status:
+
+**GitHub Actions**: https://github.com/maisachinsharmahu/vanbackend/actions
+
+### Expected Behavior:
+
+The pipeline will attempt to:
+1. Connect to your VM via SSH
+2. Pull the latest code from stage branch
+3. Install dependencies
+4. Restart the application with PM2
+
+### ⚠️ IMPORTANT: Pipeline Will Fail (Expected)
+
+The pipeline will FAIL because you haven't configured the GitHub Secrets yet!
+
+You need to add these 4 secrets:
+- GCP_SSH_PRIVATE_KEY
+- GCP_VM_IP
+- GCP_VM_USER
+- PROJECT_PATH
+
+### Next Steps:
+
+1. **On your VM**, run the setup script:
+   ```bash
+   cd /home/vibro_in/revenuebackend/vanbackend
+   chmod +x vm-setup.sh
+   ./vm-setup.sh
+   ```
+
+2. **Get your private key** (for GitHub Secrets):
+   ```bash
+   cat /home/vibro_in/.ssh/gcp_deploy_key
+   ```
+
+3. **Get your VM's external IP**:
+   ```bash
+   curl ifconfig.me
+   ```
+
+4. **Add GitHub Secrets**:
+   Go to: https://github.com/maisachinsharmahu/vanbackend/settings/secrets/actions
+   
+   Add these 4 secrets:
+   - GCP_SSH_PRIVATE_KEY: (paste the entire private key)
+   - GCP_VM_IP: (your VM's external IP)
+   - GCP_VM_USER: vibro_in
+   - PROJECT_PATH: /home/vibro_in/revenuebackend/vanbackend
+
+5. **Re-run the failed workflow**:
+   - Go to the Actions tab
+   - Click on the failed workflow
+   - Click "Re-run all jobs"
+
+### Files Added in This Commit:
+
+1. **PIPELINE_SUMMARY.txt** - Quick reference guide
+2. **vm-setup.sh** - Automated VM setup script
+3. **DEPLOYMENT.txt** (updated) - Complete deployment guide with checklist
+
+### Monitoring:
+
+Once secrets are configured, you can monitor deployments at:
+- GitHub Actions: https://github.com/maisachinsharmahu/vanbackend/actions
+- VM logs: `pm2 logs atlas-backend`
+
+### Success Criteria:
+
+Pipeline is successful when:
+- ✅ All GitHub Secrets are configured
+- ✅ SSH connection to VM succeeds
+- ✅ Code is pulled from stage branch
+- ✅ Dependencies are installed
+- ✅ Application restarts with PM2
+- ✅ Health check passes (if configured)
+
+---
+
+**Remember**: Every push to the `stage` branch will trigger automatic deployment! 🚀
