@@ -47,7 +47,7 @@ import adventureRoutes from './routes/adventureRoutes.js';
 import nomadLogRoutes from './routes/nomadLogRoutes.js';
 import storyRoutes from './routes/storyRoutes.js';
 
-// Route Usage
+// ── Routes Usage ──
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
@@ -59,6 +59,22 @@ app.use('/api/premium', premiumRoutes); // Premium/Subscription Feature
 app.use('/api/adventures', adventureRoutes); // Adventures Feature
 app.use('/api/nomad-logs', nomadLogRoutes); // Nomad Log Feature
 app.use('/api/stories', storyRoutes); // Stories Feature
+
+// Base Route
+app.get('/', (req, res) => {
+    res.send('Atlas (VanTribe) Backend AI is Running...');
+});
+
+// Health Check Endpoint for deployment verification
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'development',
+        version: '1.0.0'
+    });
+});
 
 // ── Error handling (must be AFTER all routes) ──
 app.use(notFound);
@@ -103,22 +119,6 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
-    });
-});
-
-// Base Route
-app.get('/', (req, res) => {
-    res.send('Atlas (VanTribe) Backend AI is Running...');
-});
-
-// Health Check Endpoint for deployment verification
-app.get('/health', (req, res) => {
-    res.status(200).json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        environment: process.env.NODE_ENV || 'development',
-        version: '1.0.0'
     });
 });
 
