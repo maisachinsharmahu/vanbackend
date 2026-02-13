@@ -35,7 +35,7 @@ const userSchema = new mongoose.Schema({
         model: String,
         year: String,
         photoUrl: String,
-        rigType: { type: String, enum: ['Van', 'Bus', 'RV', 'Car', 'Truck', 'Other'] } // Valid rig types
+        rigType: { type: String, enum: ['Van', 'Bus', 'RV', 'Car', 'Truck', 'Transit Van', 'Sprinter Van', 'Other'] } // Valid rig types
     },
 
     profileIcon: { type: Number, default: 0 }, // ID of selected avatar icon

@@ -13,13 +13,22 @@ const notFound = (req, res, next) => {
 
 // Central error handler
 const errorHandler = (err, req, res, _next) => {
-    // If headers already sent, delegate to Express default handler
     if (res.headersSent) return _next(err);
 
     const statusCode = err.statusCode || (res.statusCode >= 400 ? res.statusCode : 500);
 
-    console.error(`❌ [${req.method}] ${req.originalUrl} → ${statusCode}`);
-    console.error(err.stack || err.message || err);
+    // Filter out noisy 404s for external URLs (bots/scanners/proxy attempts)
+    const isProxyAttempt = req.originalUrl.includes('://');
+
+    if (statusCode >= 500) {
+        console.error(`❌ [${req.method}] ${req.originalUrl} → ${statusCode}`);
+        console.error(err.stack || err.message || err);
+    } else if (statusCode === 404 && isProxyAttempt) {
+        // Log proxy attempts very minimally
+        console.warn(`⚠️  Blocked proxy attempt: [${req.method}] ${req.originalUrl}`);
+    } else {
+        console.warn(`⚠️  [${req.method}] ${req.originalUrl} → ${statusCode} (${err.message})`);
+    }
 
     res.status(statusCode).json({
         message: err.message || 'Internal Server Error',
